@@ -1,0 +1,24 @@
+# Create security group and rule for it
+litp create -p /deployments/site1 -t deployment
+litp create -p /deployments/site1/clusters/cloud1 -t tenant-cluster -o provider_name="openstack1"
+
+litp create -p /deployments/site1/clusters/cloud1/tenants/litp -t cloud-tenant -o name="litp"
+litp create -p /deployments/site1/clusters/cloud1/tenants/litp/stacks/litp -t tenant-stack
+
+litp create -p /deployments/site1/clusters/cloud1/tenants/litp/stacks/litp/security_groups/custom -t tenant-security-group -o name=custom description="the custom security group"
+
+# Negative: Create wrong port range
+assertError --err_type ValidationError --err_property port_range_min create -p /deployments/site1/clusters/cloud1/tenants/litp/stacks/litp/security_groups/custom/rules/rule1 -t tenant-security-group-rule -o direction=ingress protocol=tcp port_range_min=99443 port_range_max=443 remote_ip_prefix="0.0.0.0/0"
+assertError --err_type ValidationError --err_property port_range_max create -p /deployments/site1/clusters/cloud1/tenants/litp/stacks/litp/security_groups/custom/rules/rule1 -t tenant-security-group-rule -o direction=ingress protocol=tcp port_range_min=443 port_range_max=99443 remote_ip_prefix="0.0.0.0/0"
+
+# Create security group rule
+litp create -p /deployments/site1/clusters/cloud1/tenants/litp/stacks/litp/security_groups/custom/rules/rule1 -t tenant-security-group-rule -o port_range_min=443 port_range_max=443
+
+# assert default values are set
+assertProperty /deployments/site1/clusters/cloud1/tenants/litp/stacks/litp/security_groups/custom/rules/rule1 -o direction=ingress protocol=tcp remote_ip_prefix="0.0.0.0/0"
+
+# attach security group negative
+assertError --err_type ValidationError --err_property security_group_names create -p /deployments/site1/clusters/cloud1/tenants/litp/stacks/litp/instances/instance1 -t tenant-instance -o instance_name="instance1" flavor="small" image_name='image_01' key_name='litp' security_group_names=':'
+
+# attach security group positive
+litp create -p /deployments/site1/clusters/cloud1/tenants/litp/stacks/litp/instances/instance1 -t tenant-instance -o instance_name="instance1" flavor="small" image_name='image_01' key_name='litp' security_group_names='custom,other'
